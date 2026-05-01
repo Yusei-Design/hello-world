@@ -39,22 +39,46 @@ module.exports = async function(req, res) {
     });
     
     console.log('Querying database:', process.env.NOTION_DATABASE_ID);
-    const response = await notion.databases.query({
-      database_id: process.env.NOTION_DATABASE_ID,
-      filter: {
-        and: [
-          { property: 'stop_lat', number: { is_not_empty: true } },
-          { property: 'stop_lon', number: { is_not_empty: true } }
-        ]
-      },
-      sorts: [
-        { property: 'stop_id', direction: 'ascending' }
-      ]
-    });
+    
+    // すべてのデータを取得（100件制限を回避）
+    let allResults = [];
+    let hasMore = true;
+    let startCursor = undefined;
+    
+    while (hasMore) {
+      const queryOptions = {
+        database_id: process.env.NOTION_DATABASE_ID,
+        filter: {
+          and: [
+            { property: 'stop_lat', number: { is_not_empty: true } },
+            { property: 'stop_lon', number: { is_not_empty: true } }
+          ]
+        },
+        sorts: [
+          { property: 'stop_id', direction: 'ascending' }
+        ],
+        page_size: 100
+      };
+      
+      if (startCursor) {
+        queryOptions.start_cursor = startCursor;
+      }
+      
+      console.log(`Fetching page with cursor: ${startCursor || 'first'}`);
+      const response = await notion.databases.query(queryOptions);
+      
+      allResults = allResults.concat(response.results);
+      hasMore = response.has_more;
+      startCursor = response.next_cursor;
+      
+      console.log(`Page fetched: ${response.results.length} items, has_more: ${hasMore}`);
+    }
+    
+    console.log(`Total items fetched: ${allResults.length}`);
 
     console.log('Database query successful, processing results...');
     
-    const busStops = response.results
+    const busStops = allResults
       .map(page => {
         const props = page.properties;
         
