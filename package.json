@@ -1,27 +1,23 @@
 {
   "name": "bus-stop-map",
-  "version": "1.0.0",
-  "description": "Bus stop map application using Notion API and OpenFreeMap",
-  "main": "index.js",
+  "version": "2.0.0",
+  "description": "Simple bus stop map application using Notion API and OpenFreeMap",
+  "main": "index.html",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "dev": "vercel dev",
+    "build": "echo 'No build step needed for static site'",
+    "start": "vercel dev"
   },
   "dependencies": {
-    "next": "^14.0.0",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "@notionhq/client": "^2.2.0",
-    "leaflet": "^1.9.0",
-    "react-leaflet": "^4.2.0"
+    "@notionhq/client": "^2.2.0"
   },
-  "devDependencies": {
-    "@types/leaflet": "^1.9.0",
-    "@types/node": "^20.0.0",
-    "@types/react": "^18.0.0",
-    "@types/react-dom": "^18.0.0",
-    "typescript": "^5.0.0"
-  }
+  "keywords": [
+    "notion",
+    "maps",
+    "bus-stops",
+    "leaflet",
+    "vercel"
+  ],
+  "author": "Yusei-Design",
+  "license": "MIT"
 }

@@ -1,6 +1,6 @@
 {
   "functions": {
-    "pages/api/bus-stops.ts": {
+    "api/bus-stops.js": {
       "maxDuration": 30
     }
   }
