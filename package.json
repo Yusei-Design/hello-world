@@ -1,4 +1,7 @@
 {
-  "name": "simple-map",
-  "version": "1.0.0"
+  "name": "bus-stop-map",
+  "version": "1.0.0",
+  "dependencies": {
+    "@notionhq/client": "^2.2.15"
+  }
 }

@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>バス停マップ</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+          crossorigin=""/>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body, html { height: 100%; font-family: Arial, sans-serif; }
+        body, html { height: 100%; font-family: Arial, sans-serif; overflow: hidden; }
+        
         #map { 
             height: 100vh; 
             width: 100vw; 
@@ -18,15 +21,16 @@
         }
         
         .info-panel {
-            position: absolute;
+            position: fixed;
             top: 10px;
             left: 10px;
             background: rgba(255, 255, 255, 0.95);
             padding: 15px 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
             z-index: 1000;
             backdrop-filter: blur(10px);
+            min-width: 200px;
         }
         
         .info-panel h1 {
@@ -42,17 +46,43 @@
         }
         
         .status-badge {
-            position: absolute;
+            position: fixed;
             bottom: 10px;
             left: 10px;
-            background: rgba(34, 197, 94, 0.9);
+            background: rgba(59, 130, 246, 0.9);
             color: white;
             padding: 8px 12px;
             border-radius: 6px;
             font-size: 0.85em;
             font-weight: 500;
             z-index: 1000;
+            min-width: 150px;
         }
+        
+        .control-panel {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+        
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin: 2px;
+        }
+        
+        .btn:hover { background: #2563eb; }
+        .btn:disabled { background: #9ca3af; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -60,62 +90,177 @@
     
     <div class="info-panel">
         <h1>🚍 バス停マップ</h1>
-        <p>テスト版 - 全面表示</p>
+        <p id="bus-count">バス停数: 読み込み中...</p>
     </div>
     
-    <div id="status" class="status-badge">マップを初期化中...</div>
+    <div class="control-panel">
+        <button id="refresh-btn" class="btn">🔄 データ更新</button>
+    </div>
+    
+    <div id="status" class="status-badge">マップ初期化中...</div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+            crossorigin=""></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        let map;
+        let busStops = [];
+        let markers = [];
+        
+        // デバッグ用ログ関数
+        function log(message) {
+            console.log(`[${new Date().toLocaleTimeString()}] ${message}`);
+            document.getElementById('status').textContent = message;
+        }
+        
+        // マップ初期化
+        function initializeMap() {
             try {
-                document.getElementById('status').textContent = '🔄 マップを初期化中...';
+                log('🔄 Leafletマップを初期化中...');
                 
-                // マップ初期化
-                const map = L.map('map', {
-                    center: [35.6762, 139.6503],
+                // マップインスタンス作成
+                map = L.map('map', {
+                    center: [35.6762, 139.6503], // 東京駅
                     zoom: 13,
-                    zoomControl: true
+                    zoomControl: true,
+                    attributionControl: true
                 });
                 
-                document.getElementById('status').textContent = '🔄 タイルを読み込み中...';
+                log('🔄 OpenFreeMapタイルを読み込み中...');
                 
-                // OpenFreeMapタイルのみ使用
-                const openFreeMapTile = L.tileLayer('https://tiles.openfree.map/osm/{z}/{x}/{y}.png', {
+                // OpenFreeMapタイル設定
+                const tileLayer = L.tileLayer('https://tiles.openfree.map/osm/{z}/{x}/{y}.png', {
                     maxZoom: 18,
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    crossOrigin: true,
+                    // タイル読み込み設定を最適化
+                    subdomains: [''],
+                    keepBuffer: 2,
+                    updateWhenZooming: false,
+                    updateWhenIdle: true,
+                    // エラー対応
+                    errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
                 });
                 
-                openFreeMapTile.addTo(map);
-                
-                // タイル読み込み完了確認
-                openFreeMapTile.on('load', function() {
-                    document.getElementById('status').textContent = '✅ OpenFreeMap表示成功';
+                // タイルイベントリスナー
+                tileLayer.on('loading', function() {
+                    log('🔄 タイル画像読み込み開始...');
                 });
                 
-                // エラー時の処理
-                openFreeMapTile.on('tileerror', function() {
-                    document.getElementById('status').textContent = '⚠️ OpenFreeMap読み込み中...';
-                    document.getElementById('status').style.background = 'rgba(251, 146, 60, 0.9)';
+                tileLayer.on('load', function() {
+                    log('✅ OpenFreeMapタイル読み込み完了');
                 });
                 
-                // テスト用マーカー
-                const marker = L.marker([35.6762, 139.6503])
+                tileLayer.on('tileerror', function(e) {
+                    console.error('Tile error:', e);
+                    log('⚠️ 一部タイル読み込みエラー（継続中）');
+                });
+                
+                // タイルをマップに追加
+                tileLayer.addTo(map);
+                
+                // マップイベント
+                map.on('moveend', function() {
+                    log(`📍 マップ移動完了: ${map.getCenter().lat.toFixed(4)}, ${map.getCenter().lng.toFixed(4)}`);
+                });
+                
+                // テスト用マーカー追加
+                const testMarker = L.marker([35.6762, 139.6503])
                     .addTo(map)
-                    .bindPopup('🚉 テスト地点<br>東京駅<br>座標: 35.6762, 139.6503');
+                    .bindPopup('🚉 東京駅<br>テスト用マーカー<br>座標: 35.6762, 139.6503');
                 
-                // 3秒後にポップアップを開く
+                // 2秒後に初期化完了
                 setTimeout(() => {
-                    marker.openPopup();
-                }, 1000);
-                
-                console.log('Map initialized successfully');
+                    log('✅ マップ初期化完了 - API接続準備中...');
+                    loadBusStops();
+                }, 2000);
                 
             } catch (error) {
                 console.error('Map initialization error:', error);
-                document.getElementById('status').textContent = '❌ マップ初期化エラー: ' + error.message;
-                document.getElementById('status').style.background = 'rgba(239, 68, 68, 0.9)';
+                log('❌ マップ初期化エラー: ' + error.message);
             }
+        }
+        
+        // バス停データ読み込み
+        async function loadBusStops() {
+            try {
+                log('🔄 Notionからバス停データを取得中...');
+                
+                const response = await fetch('/api/bus-stops');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'APIエラー');
+                }
+                
+                busStops = data.data || [];
+                log(`✅ バス停データ取得完了: ${busStops.length}件`);
+                
+                displayBusStops();
+                updateBusCount();
+                
+            } catch (error) {
+                console.error('API Error:', error);
+                log(`❌ API接続エラー: ${error.message}`);
+                
+                // テストデータでフォールバック
+                busStops = [
+                    { stop_id: 'test_001', stop_desc: 'テスト停留所1', stop_lat: 35.6762, stop_lon: 139.6503 },
+                    { stop_id: 'test_002', stop_desc: 'テスト停留所2', stop_lat: 35.6812, stop_lon: 139.6553 }
+                ];
+                
+                log('🔄 テストデータで表示中...');
+                displayBusStops();
+                updateBusCount();
+            }
+        }
+        
+        // バス停をマップに表示
+        function displayBusStops() {
+            // 既存マーカーをクリア
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            
+            busStops.forEach(stop => {
+                const marker = L.marker([stop.stop_lat, stop.stop_lon])
+                    .bindPopup(`
+                        <div>
+                            <h3>🚌 ${stop.stop_desc}</h3>
+                            <p><strong>ID:</strong> ${stop.stop_id}</p>
+                            <p><strong>座標:</strong> ${stop.stop_lat.toFixed(6)}, ${stop.stop_lon.toFixed(6)}</p>
+                        </div>
+                    `)
+                    .addTo(map);
+                
+                markers.push(marker);
+            });
+            
+            if (busStops.length > 0) {
+                const group = new L.featureGroup(markers);
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+        
+        // バス停数更新
+        function updateBusCount() {
+            document.getElementById('bus-count').textContent = `バス停数: ${busStops.length}件`;
+        }
+        
+        // イベントリスナー
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🔄 DOMContentLoaded - アプリ初期化開始');
+            initializeMap();
+            
+            document.getElementById('refresh-btn').addEventListener('click', function() {
+                this.disabled = true;
+                loadBusStops();
+                setTimeout(() => this.disabled = false, 3000);
+            });
         });
     </script>
 </body>
