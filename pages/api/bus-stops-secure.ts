@@ -1,11 +1,40 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { Client } from '@notionhq/client'
-import { BusStop } from '../../types/bus-stop'
 
-// Notion client initialization
+// より安全なバージョン（必要に応じて使用）
 const notion = new Client({
   auth: process.env.NOTION_TOKEN,
 })
+
+// レート制限のための簡単な実装
+const requestCounts = new Map()
+const RATE_LIMIT = 10 // 1分間に10回まで
+const RATE_WINDOW = 60000 // 1分
+
+function getRateLimitKey(req: NextApiRequest): string {
+  // IPアドレスまたはUser-Agentベースでキーを生成
+  const forwarded = req.headers['x-forwarded-for']
+  const ip = typeof forwarded === 'string' ? forwarded.split(',')[0] : req.connection?.remoteAddress
+  return ip || 'unknown'
+}
+
+function isRateLimited(key: string): boolean {
+  const now = Date.now()
+  const requests = requestCounts.get(key) || []
+  
+  // 古いリクエストを削除
+  const recentRequests = requests.filter((timestamp: number) => 
+    now - timestamp < RATE_WINDOW
+  )
+  
+  if (recentRequests.length >= RATE_LIMIT) {
+    return true
+  }
+  
+  recentRequests.push(now)
+  requestCounts.set(key, recentRequests)
+  return false
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -26,6 +55,28 @@ export default async function handler(
     return
   }
 
+  // レート制限チェック
+  const clientKey = getRateLimitKey(req)
+  if (isRateLimited(clientKey)) {
+    res.status(429).json({
+      success: false,
+      error: 'Too many requests. Please try again later.',
+    })
+    return
+  }
+
+  // API キーの検証（オプション）
+  const apiKey = req.headers['x-api-key']
+  const validApiKey = process.env.CLIENT_API_KEY
+  
+  if (validApiKey && apiKey !== validApiKey) {
+    res.status(401).json({
+      success: false,
+      error: 'Invalid API key',
+    })
+    return
+  }
+
   try {
     const databaseId = process.env.NOTION_DATABASE_ID
 
@@ -34,37 +85,30 @@ export default async function handler(
       return
     }
 
-    // Query Notion database
+    // Notion APIコール（既存のコードと同じ）
     const response = await notion.databases.query({
       database_id: databaseId,
       filter: {
         and: [
           {
             property: 'stop_lat',
-            number: {
-              is_not_empty: true,
-            },
+            number: { is_not_empty: true },
           },
           {
             property: 'stop_lon',
-            number: {
-              is_not_empty: true,
-            },
+            number: { is_not_empty: true },
           },
         ],
       },
     })
 
-    // Transform Notion data to our BusStop interface
-    const busStops: BusStop[] = response.results.map((page: any) => {
+    const busStops = response.results.map((page: any) => {
       const properties = page.properties
       
       return {
-        // stop_id はテキストプロパティ
         stop_id: properties.stop_id?.rich_text?.[0]?.plain_text || 
                  properties.stop_id?.title?.[0]?.plain_text || 
                  page.id,
-        // stop_desc はタイトルプロパティ
         stop_desc: properties.stop_desc?.title?.[0]?.plain_text || 
                    properties.stop_desc?.rich_text?.[0]?.plain_text || 
                    'Unknown Stop',
@@ -84,7 +128,9 @@ export default async function handler(
     res.status(500).json({
       success: false,
       error: 'Failed to fetch bus stop data',
-      details: error instanceof Error ? error.message : 'Unknown error',
+      details: process.env.NODE_ENV === 'development' 
+        ? (error instanceof Error ? error.message : 'Unknown error')
+        : 'Internal server error',
     })
   }
 }

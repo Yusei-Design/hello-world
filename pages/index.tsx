@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import Head from 'next/head'
 import BusStopMap from '../components/BusStopMap'
-import { BusStop } from '../api/bus-stops'
+import { BusStop } from '../types/bus-stop'
 
 export default function Home() {
   const [busStops, setBusStops] = useState<BusStop[]>([])

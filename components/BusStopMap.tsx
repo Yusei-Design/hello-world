@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { BusStop } from '../api/bus-stops'
+import { BusStop } from '../types/bus-stop'
 
 // Dynamically import Leaflet components to avoid SSR issues
 const MapContainer = dynamic(
