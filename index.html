@@ -8,7 +8,14 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body, html { height: 100%; font-family: Arial, sans-serif; }
-        #map { height: 100vh; width: 100vw; }
+        #map { 
+            height: 100vh; 
+            width: 100vw; 
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
         
         .info-panel {
             position: absolute;
@@ -60,20 +67,68 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // シンプルなテストマップ
-        const map = L.map('map').setView([35.6762, 139.6503], 13);
-        
-        L.tileLayer('https://tiles.openfree.map/osm/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
-        
-        // テスト用マーカー
-        L.marker([35.6762, 139.6503])
-            .addTo(map)
-            .bindPopup('テスト地点<br>東京駅')
-            .openPopup();
-            
-        document.getElementById('status').textContent = '✅ 全面マップ表示成功';
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                document.getElementById('status').textContent = '🔄 マップを初期化中...';
+                
+                // マップ初期化
+                const map = L.map('map', {
+                    center: [35.6762, 139.6503],
+                    zoom: 13,
+                    zoomControl: true
+                });
+                
+                document.getElementById('status').textContent = '🔄 タイルを読み込み中...';
+                
+                // OpenStreetMapタイル（フォールバック）
+                const osmTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 18,
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                });
+                
+                // OpenFreeMapタイル
+                const openFreeMapTile = L.tileLayer('https://tiles.openfree.map/osm/{z}/{x}/{y}.png', {
+                    maxZoom: 18,
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    errorTileUrl: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                });
+                
+                // OpenFreeMapを試して、失敗したらOSMにフォールバック
+                openFreeMapTile.on('tileerror', function() {
+                    console.log('OpenFreeMap failed, switching to OpenStreetMap');
+                    map.removeLayer(openFreeMapTile);
+                    osmTile.addTo(map);
+                });
+                
+                openFreeMapTile.addTo(map);
+                
+                // タイル読み込み完了確認
+                openFreeMapTile.on('load', function() {
+                    document.getElementById('status').textContent = '✅ マップ表示成功 (OpenFreeMap)';
+                });
+                
+                osmTile.on('load', function() {
+                    document.getElementById('status').textContent = '✅ マップ表示成功 (OpenStreetMap)';
+                });
+                
+                // テスト用マーカー
+                const marker = L.marker([35.6762, 139.6503])
+                    .addTo(map)
+                    .bindPopup('🚉 テスト地点<br>東京駅<br>座標: 35.6762, 139.6503');
+                
+                // 3秒後にポップアップを開く
+                setTimeout(() => {
+                    marker.openPopup();
+                }, 1000);
+                
+                console.log('Map initialized successfully');
+                
+            } catch (error) {
+                console.error('Map initialization error:', error);
+                document.getElementById('status').textContent = '❌ マップ初期化エラー: ' + error.message;
+                document.getElementById('status').style.background = 'rgba(239, 68, 68, 0.9)';
+            }
+        });
     </script>
 </body>
 </html>
