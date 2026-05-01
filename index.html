@@ -128,17 +128,23 @@
                 
                 log('🔄 OpenFreeMapタイルを読み込み中...');
                 
-                // OpenFreeMapタイル設定（ライセンス要件に準拠）
-                const tileLayer = L.tileLayer('https://tiles.openfree.map/osm/{z}/{x}/{y}.png', {
+                // OpenFreeMapタイル設定（複数URLパターンをテスト）
+                const openFreeMapUrls = [
+                    'https://tiles.openfreemap.org/osm/{z}/{x}/{y}.png',
+                    'https://tiles.openfreemap.org/planet/{z}/{x}/{y}.png', 
+                    'https://openfreemap.org/tiles/{z}/{x}/{y}.png',
+                    'https://tile.openfreemap.org/{z}/{x}/{y}.png'
+                ];
+                
+                let currentUrlIndex = 0;
+                
+                const tileLayer = L.tileLayer(openFreeMapUrls[currentUrlIndex], {
                     maxZoom: 18,
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    attribution: 'OpenFreeMap © OpenMapTiles Data from OpenStreetMap',
                     // 読み込み最適化設定
                     keepBuffer: 2,
                     updateWhenZooming: false,
-                    updateWhenIdle: true,
-                    // デバッグ用設定
-                    detectRetina: false,
-                    crossOrigin: true
+                    updateWhenIdle: true
                 });
                 
                 // タイルイベントリスナー
@@ -151,8 +157,33 @@
                 });
                 
                 tileLayer.on('tileerror', function(e) {
-                    console.error('Tile error:', e);
-                    log('⚠️ 一部タイル読み込みエラー（継続中）');
+                    console.error('Tile error:', e.tile.src);
+                    
+                    // 次のURLパターンを試す
+                    currentUrlIndex++;
+                    if (currentUrlIndex < openFreeMapUrls.length) {
+                        log(`⚠️ URL変更: パターン${currentUrlIndex + 1}を試行中...`);
+                        const newUrl = openFreeMapUrls[currentUrlIndex];
+                        
+                        // 新しいタイルレイヤーを作成
+                        map.removeLayer(tileLayer);
+                        const newTileLayer = L.tileLayer(newUrl, {
+                            maxZoom: 18,
+                            attribution: 'OpenFreeMap © OpenMapTiles Data from OpenStreetMap',
+                            keepBuffer: 2,
+                            updateWhenZooming: false,
+                            updateWhenIdle: true
+                        });
+                        
+                        newTileLayer.on('load', function() {
+                            log(`✅ OpenFreeMapタイル読み込み成功: パターン${currentUrlIndex + 1}`);
+                        });
+                        
+                        newTileLayer.addTo(map);
+                        
+                    } else {
+                        log('❌ 全てのOpenFreeMap URLパターンが失敗');
+                    }
                 });
                 
                 // タイルをマップに追加
@@ -168,10 +199,25 @@
                     .addTo(map)
                     .bindPopup('🚉 東京駅<br>テスト用マーカー<br>座標: 35.6762, 139.6503');
                 
-                // 2秒後に初期化完了
+                // デバッグ: タイルURLをテスト
+                console.log('Testing tile URL:', openFreeMapUrls[currentUrlIndex]);
+                
+                // タイル読み込み状況を詳細チェック
                 setTimeout(() => {
-                    log('✅ マップ初期化完了 - API接続準備中...');
-                    loadBusStops();
+                    const testUrl = openFreeMapUrls[currentUrlIndex].replace('{z}', '13').replace('{x}', '7288').replace('{y}', '3222');
+                    console.log('Sample tile URL:', testUrl);
+                    
+                    // 画像テスト
+                    const testImg = new Image();
+                    testImg.onload = () => {
+                        log('✅ タイルURL動作確認済み - API接続準備中...');
+                        loadBusStops();
+                    };
+                    testImg.onerror = () => {
+                        log('❌ タイルURL接続エラー - 次のパターンを確認中...');
+                        // タイルエラーイベントが発生するはず
+                    };
+                    testImg.src = testUrl;
                 }, 2000);
                 
             } catch (error) {
