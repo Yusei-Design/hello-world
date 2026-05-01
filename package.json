@@ -4,7 +4,7 @@
   "description": "Simple bus stop map application using Notion API and OpenFreeMap",
   "main": "index.html",
   "engines": {
-    "node": "18.x"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "vercel dev",
