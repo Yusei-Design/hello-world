@@ -17,25 +17,39 @@ module.exports = async function(req, res) {
     });
   }
 
+  console.log('=== API CALL START ===');
+  console.log('Environment check...');
+  console.log('NOTION_TOKEN exists:', !!process.env.NOTION_TOKEN);
+  console.log('NOTION_TOKEN length:', process.env.NOTION_TOKEN ? process.env.NOTION_TOKEN.length : 0);
+  console.log('NOTION_DATABASE_ID exists:', !!process.env.NOTION_DATABASE_ID);
+  console.log('NOTION_DATABASE_ID length:', process.env.NOTION_DATABASE_ID ? process.env.NOTION_DATABASE_ID.length : 0);
+
   // 環境変数チェック
   if (!process.env.NOTION_TOKEN) {
+    console.error('ERROR: NOTION_TOKEN not configured');
     return res.status(500).json({
       success: false,
-      error: 'NOTION_TOKEN not configured'
+      error: 'NOTION_TOKEN not configured',
+      details: 'Environment variable NOTION_TOKEN is missing'
     });
   }
 
   if (!process.env.NOTION_DATABASE_ID) {
+    console.error('ERROR: NOTION_DATABASE_ID not configured');
     return res.status(500).json({
       success: false,
-      error: 'NOTION_DATABASE_ID not configured'
+      error: 'NOTION_DATABASE_ID not configured',
+      details: 'Environment variable NOTION_DATABASE_ID is missing'
     });
   }
 
   try {
     console.log('Initializing Notion client...');
+    console.log('Token format check:', process.env.NOTION_TOKEN.substring(0, 20) + '...');
+    
     const notion = new Client({ 
-      auth: process.env.NOTION_TOKEN 
+      auth: process.env.NOTION_TOKEN,
+      timeoutMs: 30000 // 30秒タイムアウト
     });
     
     console.log('Querying database:', process.env.NOTION_DATABASE_ID);

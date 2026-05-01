@@ -222,32 +222,52 @@
             try {
                 log('🔄 Notionからバス停データを取得中...');
                 
+                // APIエンドポイントの詳細テスト
+                console.log('Calling API:', '/api/bus-stops');
+                
                 const response = await fetch('/api/bus-stops');
+                console.log('Response status:', response.status, response.statusText);
+                console.log('Response headers:', [...response.headers.entries()]);
                 
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    const errorText = await response.text();
+                    console.error('Response error text:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
                 }
                 
                 const data = await response.json();
+                console.log('API Response:', data);
                 
                 if (!data.success) {
-                    throw new Error(data.error || 'APIエラー');
+                    console.error('API returned error:', data);
+                    throw new Error(data.error || data.details || 'APIエラー');
                 }
                 
                 busStops = data.data || [];
                 log(`✅ バス停データ取得完了: ${busStops.length}件`);
+                console.log('First few bus stops:', busStops.slice(0, 3));
                 
                 displayBusStops();
                 updateBusCount();
                 
             } catch (error) {
-                console.error('API Error:', error);
+                console.error('Full API Error:', error);
                 log(`❌ API接続エラー: ${error.message}`);
+                
+                // 詳細なエラーレポート
+                if (error.message.includes('500')) {
+                    log('❌ サーバーエラー - 環境変数をチェック');
+                } else if (error.message.includes('404')) {
+                    log('❌ API関数が見つからない - デプロイ確認');
+                } else if (error.message.includes('TypeError')) {
+                    log('❌ ネットワークエラー - 接続確認');
+                }
                 
                 // テストデータでフォールバック
                 busStops = [
                     { stop_id: 'test_001', stop_desc: 'テスト停留所1', stop_lat: 35.6762, stop_lon: 139.6503 },
-                    { stop_id: 'test_002', stop_desc: 'テスト停留所2', stop_lat: 35.6812, stop_lon: 139.6553 }
+                    { stop_id: 'test_002', stop_desc: 'テスト停留所2', stop_lat: 35.6812, stop_lon: 139.6553 },
+                    { stop_id: 'test_003', stop_desc: 'テスト停留所3', stop_lat: 35.6712, stop_lon: 139.6453 }
                 ];
                 
                 log('🔄 テストデータで表示中...');
