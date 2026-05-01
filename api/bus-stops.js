@@ -1,7 +1,7 @@
 // Vercel Function for Notion API integration
-import { Client } from '@notionhq/client';
+const { Client } = require('@notionhq/client');
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -18,17 +18,27 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Environment variables check
+    if (!process.env.NOTION_TOKEN) {
+      return res.status(500).json({ 
+        success: false,
+        error: 'Notion token not configured' 
+      });
+    }
+
+    if (!process.env.NOTION_DATABASE_ID) {
+      return res.status(500).json({ 
+        success: false,
+        error: 'Database ID not configured' 
+      });
+    }
+
     // Initialize Notion client
     const notion = new Client({
       auth: process.env.NOTION_TOKEN,
     });
 
     const databaseId = process.env.NOTION_DATABASE_ID;
-
-    if (!databaseId) {
-      res.status(500).json({ error: 'Database ID not configured' });
-      return;
-    }
 
     // Query Notion database
     const response = await notion.databases.query({

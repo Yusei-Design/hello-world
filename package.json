@@ -3,20 +3,27 @@
   "version": "2.0.0",
   "description": "Simple bus stop map application using Notion API and OpenFreeMap",
   "main": "index.html",
+  "engines": {
+    "node": "18.x"
+  },
   "scripts": {
     "dev": "vercel dev",
-    "build": "echo 'No build step needed for static site'",
-    "start": "vercel dev"
+    "build": "echo 'Static site - no build required'",
+    "start": "echo 'Use vercel dev for local development'"
   },
   "dependencies": {
-    "@notionhq/client": "^2.2.0"
+    "@notionhq/client": "^2.2.15"
+  },
+  "devDependencies": {
+    "vercel": "^32.0.0"
   },
   "keywords": [
     "notion",
     "maps",
     "bus-stops",
     "leaflet",
-    "vercel"
+    "vercel",
+    "static-site"
   ],
   "author": "Yusei-Design",
   "license": "MIT"
