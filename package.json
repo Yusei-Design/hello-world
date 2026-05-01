@@ -14,9 +14,6 @@
   "dependencies": {
     "@notionhq/client": "^2.2.15"
   },
-  "devDependencies": {
-    "vercel": "^32.0.0"
-  },
   "keywords": [
     "notion",
     "maps",
