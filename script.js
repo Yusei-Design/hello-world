@@ -49,10 +49,20 @@ class BusStopMap {
       this.showLoading();
       
       const response = await fetch('/api/bus-stops');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.error || 'データの取得に失敗しました');
+        throw new Error(data.error || data.details || 'データの取得に失敗しました');
+      }
+
+      if (!data.data || data.data.length === 0) {
+        this.showNoData();
+        return;
       }
 
       this.busStops = data.data;
@@ -62,7 +72,7 @@ class BusStopMap {
 
     } catch (error) {
       console.error('Error loading bus stops:', error);
-      this.showError(error.message);
+      this.showError(`エラー: ${error.message}`);
     }
   }
 

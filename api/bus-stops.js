@@ -1,92 +1,66 @@
-// Vercel Function for Notion API integration
 const { Client } = require('@notionhq/client');
 
-module.exports = async function handler(req, res) {
-  // CORS headers
+module.exports = async function(req, res) {
+  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   if (req.method !== 'GET') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // 環境変数チェック
+  if (!process.env.NOTION_TOKEN || !process.env.NOTION_DATABASE_ID) {
+    return res.status(500).json({
+      success: false,
+      error: 'Environment variables not configured'
+    });
   }
 
   try {
-    // Environment variables check
-    if (!process.env.NOTION_TOKEN) {
-      return res.status(500).json({ 
-        success: false,
-        error: 'Notion token not configured' 
-      });
-    }
-
-    if (!process.env.NOTION_DATABASE_ID) {
-      return res.status(500).json({ 
-        success: false,
-        error: 'Database ID not configured' 
-      });
-    }
-
-    // Initialize Notion client
-    const notion = new Client({
-      auth: process.env.NOTION_TOKEN,
-    });
-
-    const databaseId = process.env.NOTION_DATABASE_ID;
-
-    // Query Notion database
+    const notion = new Client({ auth: process.env.NOTION_TOKEN });
+    
     const response = await notion.databases.query({
-      database_id: databaseId,
+      database_id: process.env.NOTION_DATABASE_ID,
       filter: {
         and: [
-          {
-            property: 'stop_lat',
-            number: { is_not_empty: true },
-          },
-          {
-            property: 'stop_lon',
-            number: { is_not_empty: true },
-          },
-        ],
-      },
+          { property: 'stop_lat', number: { is_not_empty: true } },
+          { property: 'stop_lon', number: { is_not_empty: true } }
+        ]
+      }
     });
 
-    // Transform data
-    const busStops = response.results.map((page) => {
-      const properties = page.properties;
-      
-      return {
-        stop_id: properties.stop_id?.rich_text?.[0]?.plain_text || 
-                 properties.stop_id?.title?.[0]?.plain_text || 
-                 page.id,
-        stop_desc: properties.stop_desc?.title?.[0]?.plain_text || 
-                   properties.stop_desc?.rich_text?.[0]?.plain_text || 
-                   'Unknown Stop',
-        stop_lat: properties.stop_lat?.number || 0,
-        stop_lon: properties.stop_lon?.number || 0,
-      };
-    }).filter(stop => stop.stop_lat !== 0 && stop.stop_lon !== 0);
+    const busStops = response.results
+      .map(page => {
+        const p = page.properties;
+        return {
+          stop_id: p.stop_id?.rich_text?.[0]?.plain_text || 
+                   p.stop_id?.title?.[0]?.plain_text || page.id,
+          stop_desc: p.stop_desc?.title?.[0]?.plain_text || 
+                     p.stop_desc?.rich_text?.[0]?.plain_text || 'Unknown',
+          stop_lat: p.stop_lat?.number || 0,
+          stop_lon: p.stop_lon?.number || 0
+        };
+      })
+      .filter(stop => stop.stop_lat !== 0 && stop.stop_lon !== 0);
 
     res.status(200).json({
       success: true,
       data: busStops,
-      count: busStops.length,
+      count: busStops.length
     });
 
   } catch (error) {
-    console.error('Error fetching bus stops:', error);
+    console.error('API Error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch bus stop data',
-      details: process.env.NODE_ENV === 'development' 
-        ? error.message 
-        : 'Internal server error',
+      error: 'Failed to fetch data',
+      details: error.message
     });
   }
-}
+};

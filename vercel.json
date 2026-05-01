@@ -1,14 +1,7 @@
 {
   "functions": {
-    "api/bus-stops.js": {
-      "runtime": "nodejs20.x",
+    "api/*.js": {
       "maxDuration": 30
     }
-  },
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/index.html"
-    }
-  ]
+  }
 }
